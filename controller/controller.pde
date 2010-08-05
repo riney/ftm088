@@ -12,7 +12,7 @@ void setup()
   debugln("FTM088 start!");
   
   init_phone();
-  sms("8437533514", "hello world!");
+  sms("654564654", "hello world!");
   
   pinMode(LED_PIN, OUTPUT);  // set ledPin pin as output
 }
