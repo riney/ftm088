@@ -9,6 +9,10 @@ void debug(const char c[]) {
   DEBUG_PORT.print(c);
 }
 
+void debug(int c) {
+  DEBUG_PORT.print(c, BYTE);
+}
+
 void debugln(const char c[]) {
   DEBUG_PORT.println(c);
 }

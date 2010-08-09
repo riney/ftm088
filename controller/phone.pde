@@ -1,8 +1,9 @@
 #define PHONE_DEBUG true
 
 #define PHONE_PORT Serial1
-const int PHONE_BAUD = 4800;
-const int DELAY_TIME = 250;
+#define PHONE_BAUD 4800
+#define DELAY_TIME 250
+#define PHONE_TIMEOUT 5000
 
 #define RESET_CMD    "AT*SWRESET"
 #define XMIT_OFF_CMD "AT+CFUN=0"
@@ -10,9 +11,33 @@ const int DELAY_TIME = 250;
 #define MSG_CMD      "AT+CMGS="
 #define SIGNAL_CMD   "AT+CSQ"
 #define BATT_CMD     "AT+CBC"
+#define ECHO_OFF_CMD  "ATE0"
+#define AT_RESET_CMD  "ATZ"
 
 void init_phone(void) {
+  debugln("init_phone()");
   PHONE_PORT.begin(PHONE_BAUD);
+  wait();
+  sendln(AT_RESET_CMD);
+  if (wait_for_available()) {
+    debugln("available bytes!");
+  }
+  else {
+    debugln("timed out");
+  }
+  char c;
+  while(PHONE_PORT.available() > 0) {
+    c = PHONE_PORT.read();
+    debug(c);
+  }
+  debugln("init_phone done");
+
+}
+
+boolean wait_for_available(void) {
+  unsigned long start = millis();
+  while ((millis() - start < PHONE_TIMEOUT) && (!PHONE_PORT.available()));
+  return PHONE_PORT.available() > 0;
 }
 
 int reset_phone(void) {
