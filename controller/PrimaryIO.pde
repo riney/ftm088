@@ -1,26 +1,26 @@
-#define MAX_POINTS 5
-#define IO_RATE 500       //Time between input and output interactions in ms
-#define SERIAL_RATE 1000  //Time between serial updates on point data in ms
+const int MAX_POINTS = 5;
+const int IO_RATE = 500;       //Time between input and output interactions in ms
+const int SERIAL_RATE = 2000;  //Time between serial updates on point data in ms
 
 
 //Point Types
-#define POINT_UNDEFINED 0
-#define POINT_DINPUT 1
-#define POINT_AINPUT 2
-#define POINT_DOUTPUT 3
+const int POINT_UNDEFINED = 0;
+const int POINT_DINPUT = 1;
+const int POINT_AINPUT = 2;
+const int POINT_DOUTPUT = 3;
 
 //Alarm Types
-#define ALM_NONE 0           //No alarm defined
-#define ALM_GRTRTHAN_AP1 1   //Alarm when greater than AP1
-#define ALM_LESSTHAN_AP1 2   //Alarm when less than AP1
-#define ALM_OOR_AP1_AP2 3    //Alarm when out of range specified by AP1 and AP2
+const int ALM_NONE = 0;           //No alarm defined
+const int ALM_GRTRTHAN_AP1 = 1;   //Alarm when greater than AP1
+const int ALM_LESSTHAN_AP1 = 2;   //Alarm when less than AP1
+const int ALM_OOR_AP1_AP2 = 3;    //Alarm when out of range specified by AP1 and AP2
 
 //Conversion Types
-#define CONV_NONE 0
-#define CONV_THERM_10K_Z 1
+const int CONV_NONE = 0;
+const int CONV_THERM_10K_Z = 1;
 
 //Convenient point list index definitions here
-#define TEC1_HOT_THERM 0
+const int TEC1_HOT_THERM = 0;
 
 struct alarm_data {
   boolean value;     //Whether or not the alarm condition is true
@@ -105,11 +105,14 @@ void configure_points() {
   }
 }
 
+//Note, printDouble needs to be modified from original form to print to debug module instead of
+//predefined serial port.  Unfortunately the output is borked by the current debug implimentation.
+
 void printDouble(double val, byte precision) {
   // prints val with number of decimal places determine by precision
   // precision is a number from 0 to 6 indicating the desired decimal places
   // example: printDouble(3.1415, 2); // prints 3.14 (two decimal places)
-  Serial.print (int(val));  //prints the int part
+  Serial.print(int(val));  //prints the int part
   if( precision > 0) {
     Serial.print("."); // print the decimal point
     unsigned long frac, mult = 1;
@@ -118,7 +121,7 @@ void printDouble(double val, byte precision) {
     if(val >= 0) frac = (val - int(val)) * mult; else frac = (int(val) - val) * mult;
     unsigned long frac1 = frac;
     while(frac1 /= 10) padding--;
-    while(padding--) Serial.print("0");
+    while(padding--) debug("0");
     Serial.print(frac,DEC) ;
   }
 }
@@ -207,15 +210,16 @@ void do_serial_update() {
   
   //Print an output line with the point name, a pad of '.'s, and then the value formatted
   //to the correct precision.
-  Serial.print(points[serial_count].name);
+  debug("PrimaryIO - ");
+  debug(points[serial_count].name);
   int i = 0;
   int strlen = sizeof(points[serial_count].name);
   while (i <= (36 - strlen)) {
-    Serial.print(".");
+    debug(".");
     i++;
   }
   printDouble(points[serial_count].value, points[serial_count].precision);
-  Serial.println("");
+  debugln("");
   
   //Increment serial_count for the next pass
   serial_count++;
@@ -224,17 +228,21 @@ void do_serial_update() {
 }
 
 
-void setup() {
- Serial.begin(9600);
+void init_primaryio() {
+ //Serial.begin(9600);
+ debugln("PrimaryIO - Begin initialization.");
  initialize_pointlist();
+ debugln("PrimaryIO - Load point attributes.");
  load_pointlist();
+ debugln("PrimaryIO - Configure IO pins.");
  configure_points();
  last_io_update = 0;
  last_serial_update = 0;
  serial_count = 0;
+ debugln("PrimaryIO - Initialization complete.");
 }
 
-void loop() {
+void update_primaryio() {
   current_time = millis();
   //millis() overflows about every 50 days and resets to 0.  Should never be an issue, but
   //including a rough hack to reset timing just in case.  Considered a more accurate fix to retain
