@@ -105,27 +105,6 @@ void configure_points() {
   }
 }
 
-//Note, printDouble needs to be modified from original form to print to debug module instead of
-//predefined serial port.  Unfortunately the output is borked by the current debug implimentation.
-
-void printDouble(double val, byte precision) {
-  // prints val with number of decimal places determine by precision
-  // precision is a number from 0 to 6 indicating the desired decimal places
-  // example: printDouble(3.1415, 2); // prints 3.14 (two decimal places)
-  Serial.print(int(val));  //prints the int part
-  if( precision > 0) {
-    Serial.print("."); // print the decimal point
-    unsigned long frac, mult = 1;
-    byte padding = precision -1;
-    while(precision--) mult *=10;
-    if(val >= 0) frac = (val - int(val)) * mult; else frac = (int(val) - val) * mult;
-    unsigned long frac1 = frac;
-    while(frac1 /= 10) padding--;
-    while(padding--) debug("0");
-    Serial.print(frac,DEC) ;
-  }
-}
-
 double conversion_therm_10k_z(double RawADC) {
   long Resistance;  
   double LogR;
@@ -218,7 +197,7 @@ void do_serial_update() {
     debug(".");
     i++;
   }
-  printDouble(points[serial_count].value, points[serial_count].precision);
+  debugDouble(points[serial_count].value, points[serial_count].precision);
   debugln("");
   
   //Increment serial_count for the next pass
