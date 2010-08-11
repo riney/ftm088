@@ -1,7 +1,14 @@
+#include "thermistor.h"
+
 const int MAX_POINTS = 5;
 const int IO_RATE = 500;       //Time between input and output interactions in ms
 const int SERIAL_RATE = 2000;  //Time between serial updates on point data in ms
 
+steinhart_hart_coefficient conv_therm_z = {
+  0.001124963847380,
+  0.000234766149049,
+  0.000000085609586,
+};
 
 //Point Types
 const int POINT_UNDEFINED = 0;
@@ -105,25 +112,25 @@ void configure_points() {
   }
 }
 
-double conversion_therm_10k_z(double RawADC) {
-  long Resistance;  
-  double LogR;
-  double Kelvin;
-  double Farenheit;
-  double A = 0.001124963847380;
-  double B = 0.000234766149049;
-  double C = 0.000000085609586;
-  long RefR = 10000;
-  long RefV = 5;
-  double Volts;
- 
-  Volts = (RawADC / 1024) * RefV;
-  Resistance = ((RefR * Volts) / (RefV - Volts));
-  LogR = log(Resistance);
-  Kelvin = 1 / (A + (B * LogR) + (C * LogR * LogR * LogR));
-  Farenheit = (((Kelvin - 273.15) * 9.0)/ 5.0) + 32.0;
-  return Farenheit;
-}
+//double conversion_therm_10k_z(double RawADC) {
+//  long Resistance;  
+//  double LogR;
+//  double Kelvin;
+//  double Farenheit;
+//  double A = 0.001124963847380;
+//  double B = 0.000234766149049;
+//  double C = 0.000000085609586;
+//  long RefR = 10000;
+//  long RefV = 5;
+//  double Volts;
+// 
+//  Volts = (RawADC / 1024) * RefV;
+//  Resistance = ((RefR * Volts) / (RefV - Volts));
+//  LogR = log(Resistance);
+//  Kelvin = 1 / (A + (B * LogR) + (C * LogR * LogR * LogR));
+//  Farenheit = (((Kelvin - 273.15) * 9.0)/ 5.0) + 32.0;
+//  return Farenheit;
+//}
 
 void do_input_update() {
   //input gather here
@@ -137,7 +144,8 @@ void do_input_update() {
         //perform any required conversion
         switch (points[i].conv_type) {
           case CONV_THERM_10K_Z:
-            points[i].value = conversion_therm_10k_z(raw_input);
+            //points[i].value = conversion_therm_10k_z(raw_input);
+            points[i].value = conversion_therm(raw_input, conv_therm_z);
             break;
           default:
             points[i].value = raw_input;
