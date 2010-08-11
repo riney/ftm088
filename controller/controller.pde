@@ -4,7 +4,8 @@
 */
  
 /* IO pin assignments */
-const int LED_PIN = 13;
+//const int LED_PIN = 13;
+boolean active_heartbeat = false;
 
 void setup()
 {
@@ -16,7 +17,7 @@ void setup()
   
   init_primaryio();
   
-  pinMode(LED_PIN, OUTPUT);  // set ledPin pin as output
+  //pinMode(LED_PIN, OUTPUT);  // set ledPin pin as output
 }
 
 void loop() 
@@ -34,10 +35,16 @@ void loop()
   
   update_primaryio();           //Perform all input/output/alarming/logic functions for primary actuation
   
-  digitalWrite(LED_PIN, HIGH);  // set the LED on
-  delay(1000);                  // wait for a second
-  digitalWrite(LED_PIN, LOW);   // set the LED off
-  delay(1000); 
+  
+  //Below blinking actuation and above onboard led pin define and config commented as the delays will actually interrupt processing of other modules.
+  //Added this blinking LED into the primaryio actuation as a heartbeat indicator.  Turning active_heartbeat true and false
+  //will enable and disable this functionality.
+  active_heartbeat = true;
+  
+  //digitalWrite(LED_PIN, HIGH);  // set the LED on
+  //delay(1000);                  // wait for a second
+  //digitalWrite(LED_PIN, LOW);   // set the LED off
+  //delay(1000); 
 }
 
 

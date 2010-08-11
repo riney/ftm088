@@ -1,7 +1,7 @@
 #include "thermistor.h"
 
 const int MAX_POINTS = 5;
-const int IO_RATE = 500;       //Time between input and output interactions in ms
+const int IO_RATE = 100;       //Time between input and output interactions in ms
 const int SERIAL_RATE = 2000;  //Time between serial updates on point data in ms
 
 steinhart_hart_coefficient conv_therm_z = {
@@ -28,6 +28,7 @@ const int CONV_THERM_10K_Z = 1;
 
 //Convenient point list index definitions here
 const int TEC1_HOT_THERM = 0;
+const int ONBOARD_LED = 1;
 
 struct alarm_data {
   boolean value;     //Whether or not the alarm condition is true
@@ -87,6 +88,19 @@ void load_pointlist() {
   points[0].alarm.type = ALM_NONE;
   points[0].alarm.ap1 = 0;
   points[0].alarm.ap2 = 0;
+  
+  points[1].value = 0;
+  points[1].precision = 0;
+  strlcpy(points[1].name, "Onboard LED", sizeof(points[1].name));
+  points[1].pin = 13;
+  points[1].type = POINT_DOUTPUT;
+  points[1].conv_type = CONV_NONE;
+  points[1].alarm.value = false;
+  points[1].alarm.state = false;
+  points[1].alarm.type = ALM_NONE;
+  points[1].alarm.ap1 = 0;
+  points[1].alarm.ap2 = 0;
+  
   return;
 }
   
@@ -132,9 +146,25 @@ void configure_points() {
 //  return Farenheit;
 //}
 
+
+//Helper function just to make for easier logic tests versus digital inputs and outputs
+//Intended to be called like:  if (is_on(points[i].value)) { ... }
+//Done to keep the values of the points in the array unified rather than having a
+//double value element for analog inputs and a boolean value element for digital
+//inputs and outputs.
+boolean is_on(double point_value) {
+  if (point_value > 0.5) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+
 void do_input_update() {
   //input gather here
   int i = 0;
+  int raw_d_input = 0;
   double raw_input = 0;
   while (i < MAX_POINTS) {
     switch (points[i].type) {
@@ -155,6 +185,12 @@ void do_input_update() {
       case POINT_DINPUT:
         //read the digital input
         //perform any required conversion
+        raw_d_input = digitalRead(points[i].pin);
+        if (raw_d_input == HIGH) {
+          points[i].value = 1;
+        } else {
+          points[i].value = 0;
+        }
         break;
       default:
         break;
@@ -169,13 +205,51 @@ void do_alarm_update() {
   return;
 }
 
+unsigned long last_led_state_change = 0;
+
 void do_actuation_logic() {
   //io actuation logic processed here
+  //Timekeeping - Note that current_time is a global that is set in the calling function update_primaryio()
+  
+  int LED_flash_time = 2000; //time in ms we want the LED to flash in, both on and off
+  if (current_time < last_led_state_change) {     //fix for rotating responses from millis()
+    last_led_state_change = 0;
+  }
+  
+  //Actuation logic
+  
+  if (active_heartbeat) {
+    if (current_time >= (last_led_state_change + LED_flash_time)) {
+      if (is_on(points[ONBOARD_LED].value)) {
+        points[ONBOARD_LED].value = 0;
+      } else {
+        points[ONBOARD_LED].value = 1;
+      }
+      last_led_state_change = current_time;
+    }
+  } 
+    
   return;
 }
 
 void do_output_update() {
   //use values to set output pin states here
+  int i = 0;
+  while (i < MAX_POINTS) {
+    switch (points[i].type) {
+      case POINT_DOUTPUT:
+        //Set output pin state based on value of the point
+        if (is_on(points[i].value)) {
+          digitalWrite(points[i].pin, HIGH);
+        } else {
+          digitalWrite(points[i].pin, LOW);
+        }
+        break;
+      default:
+        break;
+    }
+    i++;
+  }
   return;
 }
 
