@@ -22,6 +22,12 @@ const int ALM_GRTRTHAN_AP1 = 1;   //Alarm when greater than AP1
 const int ALM_LESSTHAN_AP1 = 2;   //Alarm when less than AP1
 const int ALM_OOR_AP1_AP2 = 3;    //Alarm when out of range specified by AP1 and AP2
 
+//Alarm Notification Bitflags
+const int NOTIFY_NONE = 0;
+const int NOTIFY_DEBUG = 1;
+const int NOTIFY_LCD = 2;
+const int NOTIFY_SMS = 4;
+
 //Conversion Types
 const int CONV_NONE = 0;
 const int CONV_THERM_10K_Z = 1;
@@ -33,9 +39,13 @@ const int ONBOARD_LED = 1;
 struct alarm_data {
   boolean value;     //Whether or not the alarm condition is true
   boolean state;     //Whether or not the alarm is enabled for checking
+  int notify;        //Bitmask value for what types of notifications of the alarm (and return to normals) should be sent
+  boolean sent;      //Whether or not the current condition of the alarm has been sent according to its notification level
   int type;          //What type of alarm check should be used
   float ap1;         //Alarm point data for comparison in checks
   float ap2;         //Alarm point data for comparison in checks
+  float db;          //Deadband which must be overcome to have alarm return to normal
+                     //  Ex: if alarming when > ap1 (40), with a db of 2, RTN would not occur until temp is < 38
 };
   
 struct io_point {
@@ -65,9 +75,12 @@ void initialize_pointlist() {
     points[i].conv_type = CONV_NONE;
     points[i].alarm.value = false;
     points[i].alarm.state = false;
+    points[i].alarm.notify = NOTIFY_NONE;
+    points[i].alarm.sent = true;                  //Note, initially set to true so we dont get "return to normal" messages from all points on initial runtime
     points[i].alarm.type = ALM_NONE;
     points[i].alarm.ap1 = 0;
     points[i].alarm.ap2 = 0;
+    points[i].alarm.db = 0;
     i++;
   }
   return;
@@ -77,29 +90,30 @@ void initialize_pointlist() {
 //always double check the defined MAX_POINTS at the head of this sketch.
 
 void load_pointlist() {
-  points[0].value = 0;
-  points[0].precision = 1;
+  
   strlcpy(points[0].name, "TEC1 Hot Therm", sizeof(points[0].name));
   points[0].pin = 0;
   points[0].type = POINT_AINPUT;
+  points[0].precision = 1;
   points[0].conv_type = CONV_THERM_10K_Z;
-  points[0].alarm.value = false;
-  points[0].alarm.state = false;
   points[0].alarm.type = ALM_NONE;
+  points[0].alarm.state = false;
+  points[0].alarm.notify = NOTIFY_NONE;
   points[0].alarm.ap1 = 0;
   points[0].alarm.ap2 = 0;
+  points[0].alarm.db = 0;
   
-  points[1].value = 0;
-  points[1].precision = 0;
   strlcpy(points[1].name, "Onboard LED", sizeof(points[1].name));
   points[1].pin = 13;
   points[1].type = POINT_DOUTPUT;
+  points[1].precision = 0;
   points[1].conv_type = CONV_NONE;
-  points[1].alarm.value = false;
-  points[1].alarm.state = false;
   points[1].alarm.type = ALM_NONE;
+  points[1].alarm.state = false;
+  points[1].alarm.notify = NOTIFY_NONE;
   points[1].alarm.ap1 = 0;
   points[1].alarm.ap2 = 0;
+  points[1].alarm.db = 0;
   
   return;
 }
@@ -125,26 +139,6 @@ void configure_points() {
     i++;
   }
 }
-
-//double conversion_therm_10k_z(double RawADC) {
-//  long Resistance;  
-//  double LogR;
-//  double Kelvin;
-//  double Farenheit;
-//  double A = 0.001124963847380;
-//  double B = 0.000234766149049;
-//  double C = 0.000000085609586;
-//  long RefR = 10000;
-//  long RefV = 5;
-//  double Volts;
-// 
-//  Volts = (RawADC / 1024) * RefV;
-//  Resistance = ((RefR * Volts) / (RefV - Volts));
-//  LogR = log(Resistance);
-//  Kelvin = 1 / (A + (B * LogR) + (C * LogR * LogR * LogR));
-//  Farenheit = (((Kelvin - 273.15) * 9.0)/ 5.0) + 32.0;
-//  return Farenheit;
-//}
 
 
 //Helper function just to make for easier logic tests versus digital inputs and outputs
@@ -174,7 +168,6 @@ void do_input_update() {
         //perform any required conversion
         switch (points[i].conv_type) {
           case CONV_THERM_10K_Z:
-            //points[i].value = conversion_therm_10k_z(raw_input);
             points[i].value = conversion_therm(raw_input, conv_therm_z);
             break;
           default:
@@ -274,8 +267,8 @@ void do_serial_update() {
   debug("PrimaryIO - ");
   debug(points[serial_count].name);
   int i = 0;
-  int strlen = sizeof(points[serial_count].name);
-  while (i <= (36 - strlen)) {
+  int name_length = strlen(points[serial_count].name);
+  while (i <= (36 - name_length)) {
     debug(".");
     i++;
   }
@@ -290,7 +283,6 @@ void do_serial_update() {
 
 
 void init_primaryio() {
- //Serial.begin(9600);
  debugln("PrimaryIO - Begin initialization.");
  initialize_pointlist();
  debugln("PrimaryIO - Load point attributes.");
