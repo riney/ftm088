@@ -19,6 +19,8 @@ void init_microsd() {
     volume.init(card);         //Initialize a volume on the SD card.
     root.openRoot(volume);     //Open the root directory in the volume. 
     debugln("MicroSD Card Init Complete");
+  } else {
+    debugln("Logging shield not enabled - skipping initialization of microSD.");
   }
 }
 

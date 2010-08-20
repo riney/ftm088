@@ -284,6 +284,8 @@ void do_log_update() {
       i++;
     }
     debugln("Finished logging update.");
+  } else {
+    debugln("Logging shield not enabled - skipping point logging.");
   }
 }
 

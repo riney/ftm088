@@ -15,6 +15,8 @@ void init_rtc () {
       //RTC.adjust(DateTime(__DATE__, __TIME__));
     }
     real_time = RTC.now();
+  } else {
+    debugln("Logging shield not enabled - skipping initialization of RTC.");
   }
 }
 
