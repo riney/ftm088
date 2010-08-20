@@ -1,10 +1,11 @@
 #include "thermistor.h"
 
-const int MAX_POINTS = 5;
+const int MAX_POINTS = 15;
 const int IO_RATE = 100;       //Time between input and output interactions in ms
 const int SERIAL_RATE = 2000;  //Time between serial updates on point data in ms
+const long LOGGING_RATE = 60000;  //Logging interval
 
-steinhart_hart_coefficient conv_therm_z = {
+steinhart_hart_coefficient conv_therm_10k_z = {
   0.001124963847380,
   0.000234766149049,
   0.000000085609586,
@@ -27,14 +28,23 @@ const int NOTIFY_NONE = 0;
 const int NOTIFY_DEBUG = 1;
 const int NOTIFY_LCD = 2;
 const int NOTIFY_SMS = 4;
+const int NOTIFY_LOG = 5;
 
 //Conversion Types
 const int CONV_NONE = 0;
 const int CONV_THERM_10K_Z = 1;
 
 //Convenient point list index definitions here
-const int TEC1_HOT_THERM = 0;
-const int ONBOARD_LED = 1;
+const int ONBOARD_LED = 0;
+const int TEC1_HOT_TEMP = 1;
+const int TEC2_HOT_TEMP = 2;
+const int COOLANT_TEMP = 3;
+const int KEG_TEMP = 4;
+const int PUMP_RELAY = 5;
+const int FAN_RELAY = 6;
+const int TEC1_RELAY = 7;
+const int TEC2_RELAY = 8;
+const int RUN_ENABLE = 9;
 
 struct alarm_data {
   boolean value;     //Whether or not the alarm condition is true
@@ -55,12 +65,14 @@ struct io_point {
   int pin;           //Arduino pin number
   int type;          //Type of point, analog/digital input/output
   int conv_type;     //Type of conversion from raw read value to engineering units
+  boolean logged;    //Whether or not the point is logged to SD
   alarm_data alarm;
 };
 
 io_point points[MAX_POINTS];
 unsigned long last_io_update;
 unsigned long last_serial_update;
+unsigned long last_log_update;
 unsigned long current_time;
 int serial_count;  //counter to step through point list for serial updates
 
@@ -73,6 +85,7 @@ void initialize_pointlist() {
     points[i].pin = 0;
     points[i].type = POINT_UNDEFINED;
     points[i].conv_type = CONV_NONE;
+    points[i].logged = false;
     points[i].alarm.value = false;
     points[i].alarm.state = false;
     points[i].alarm.notify = NOTIFY_NONE;
@@ -91,11 +104,12 @@ void initialize_pointlist() {
 
 void load_pointlist() {
   
-  strlcpy(points[0].name, "TEC1 Hot Therm", sizeof(points[0].name));
-  points[0].pin = 0;
-  points[0].type = POINT_AINPUT;
-  points[0].precision = 1;
-  points[0].conv_type = CONV_THERM_10K_Z;
+  strlcpy(points[0].name, "Onboard LED", sizeof(points[0].name));
+  points[0].pin = 13;
+  points[0].type = POINT_DOUTPUT;
+  points[0].precision = 0;
+  points[0].conv_type = CONV_NONE;
+  points[0].logged = false;
   points[0].alarm.type = ALM_NONE;
   points[0].alarm.state = false;
   points[0].alarm.notify = NOTIFY_NONE;
@@ -103,17 +117,122 @@ void load_pointlist() {
   points[0].alarm.ap2 = 0;
   points[0].alarm.db = 0;
   
-  strlcpy(points[1].name, "Onboard LED", sizeof(points[1].name));
-  points[1].pin = 13;
-  points[1].type = POINT_DOUTPUT;
-  points[1].precision = 0;
-  points[1].conv_type = CONV_NONE;
+  strlcpy(points[1].name, "TEC1 Hot Temp", sizeof(points[1].name));
+  points[1].pin = 8;
+  points[1].type = POINT_AINPUT;
+  points[1].precision = 1;
+  points[1].conv_type = CONV_THERM_10K_Z;
+  points[1].logged = true;
   points[1].alarm.type = ALM_NONE;
   points[1].alarm.state = false;
   points[1].alarm.notify = NOTIFY_NONE;
   points[1].alarm.ap1 = 0;
   points[1].alarm.ap2 = 0;
   points[1].alarm.db = 0;
+  
+  strlcpy(points[2].name, "TEC2 Hot Temp", sizeof(points[2].name));
+  points[2].pin = 9;
+  points[2].type = POINT_AINPUT;
+  points[2].precision = 1;
+  points[2].conv_type = CONV_THERM_10K_Z;
+  points[2].logged = true;
+  points[2].alarm.type = ALM_NONE;
+  points[2].alarm.state = false;
+  points[2].alarm.notify = NOTIFY_NONE;
+  points[2].alarm.ap1 = 0;
+  points[2].alarm.ap2 = 0;
+  points[2].alarm.db = 0;
+  
+  strlcpy(points[3].name, "Reservoir Coolant Temp", sizeof(points[3].name));
+  points[3].pin = 10;
+  points[3].type = POINT_AINPUT;
+  points[3].precision = 1;
+  points[3].conv_type = CONV_THERM_10K_Z;
+  points[3].logged = true;
+  points[3].alarm.type = ALM_NONE;
+  points[3].alarm.state = false;
+  points[3].alarm.notify = NOTIFY_NONE;
+  points[3].alarm.ap1 = 0;
+  points[3].alarm.ap2 = 0;
+  points[3].alarm.db = 0;
+  
+  strlcpy(points[4].name, "Keg Temp", sizeof(points[4].name));
+  points[4].pin = 11;
+  points[4].type = POINT_AINPUT;
+  points[4].precision = 1;
+  points[4].conv_type = CONV_THERM_10K_Z;
+  points[4].logged = true;
+  points[4].alarm.type = ALM_NONE;
+  points[4].alarm.state = false;
+  points[4].alarm.notify = NOTIFY_NONE;
+  points[4].alarm.ap1 = 0;
+  points[4].alarm.ap2 = 0;
+  points[4].alarm.db = 0;
+  
+  strlcpy(points[5].name, "Pump Relay", sizeof(points[5].name));
+  points[5].pin = 22;
+  points[5].type = POINT_DOUTPUT;
+  points[5].precision = 0;
+  points[5].conv_type = CONV_NONE;
+  points[5].logged = true;
+  points[5].alarm.type = ALM_NONE;
+  points[5].alarm.state = false;
+  points[5].alarm.notify = NOTIFY_NONE;
+  points[5].alarm.ap1 = 0;
+  points[5].alarm.ap2 = 0;
+  points[5].alarm.db = 0;
+  
+  strlcpy(points[6].name, "Fan Relay", sizeof(points[6].name));
+  points[6].pin = 24;
+  points[6].type = POINT_DOUTPUT;
+  points[6].precision = 0;
+  points[6].conv_type = CONV_NONE;
+  points[6].logged = true;
+  points[6].alarm.type = ALM_NONE;
+  points[6].alarm.state = false;
+  points[6].alarm.notify = NOTIFY_NONE;
+  points[6].alarm.ap1 = 0;
+  points[6].alarm.ap2 = 0;
+  points[6].alarm.db = 0;
+  
+  strlcpy(points[7].name, "TEC1 Relay", sizeof(points[7].name));
+  points[7].pin = 26;
+  points[7].type = POINT_DOUTPUT;
+  points[7].precision = 0;
+  points[7].conv_type = CONV_NONE;
+  points[7].logged = true;
+  points[7].alarm.type = ALM_NONE;
+  points[7].alarm.state = false;
+  points[7].alarm.notify = NOTIFY_NONE;
+  points[7].alarm.ap1 = 0;
+  points[7].alarm.ap2 = 0;
+  points[7].alarm.db = 0;
+  
+  strlcpy(points[8].name, "TEC2 Relay", sizeof(points[8].name));
+  points[8].pin = 28;
+  points[8].type = POINT_DOUTPUT;
+  points[8].precision = 0;
+  points[8].conv_type = CONV_NONE;
+  points[8].logged = true;
+  points[8].alarm.type = ALM_NONE;
+  points[8].alarm.state = false;
+  points[8].alarm.notify = NOTIFY_NONE;
+  points[8].alarm.ap1 = 0;
+  points[8].alarm.ap2 = 0;
+  points[8].alarm.db = 0;
+  
+  strlcpy(points[9].name, "Run Enable", sizeof(points[9].name));
+  points[9].pin = 30;
+  points[9].type = POINT_DINPUT;
+  points[9].precision = 0;
+  points[9].conv_type = CONV_NONE;
+  points[9].logged = true;
+  points[9].alarm.type = ALM_NONE;
+  points[9].alarm.state = false;
+  points[9].alarm.notify = NOTIFY_NONE;
+  points[9].alarm.ap1 = 0;
+  points[9].alarm.ap2 = 0;
+  points[9].alarm.db = 0;
   
   return;
 }
@@ -154,6 +273,19 @@ boolean is_on(double point_value) {
   }
 }
 
+void do_log_update() {
+  if (USE_LOG_SHIELD) {
+    debugln("Beginning logging update.");
+    int i = 0;
+    while (i < MAX_POINTS) {
+      if ((points[i].type != POINT_UNDEFINED) and (points[i].logged)) {
+        log_point(i);
+      }
+      i++;
+    }
+    debugln("Finished logging update.");
+  }
+}
 
 void do_input_update() {
   //input gather here
@@ -168,7 +300,7 @@ void do_input_update() {
         //perform any required conversion
         switch (points[i].conv_type) {
           case CONV_THERM_10K_Z:
-            points[i].value = conversion_therm(raw_input, conv_therm_z);
+            points[i].value = conversion_therm(raw_input, conv_therm_10k_z);
             break;
           default:
             points[i].value = raw_input;
@@ -291,6 +423,7 @@ void init_primaryio() {
  configure_points();
  last_io_update = 0;
  last_serial_update = 0;
+ last_log_update = 0;
  serial_count = 0;
  debugln("PrimaryIO - Initialization complete.");
 }
@@ -303,6 +436,10 @@ void update_primaryio() {
   if (current_time < last_io_update) {
     last_io_update = 0;
     last_serial_update = 0;
+  }
+  if (current_time >= (last_log_update + LOGGING_RATE)) {
+    do_log_update();
+    last_log_update = current_time;
   }
     
   if (current_time >= (last_io_update + IO_RATE)) {
