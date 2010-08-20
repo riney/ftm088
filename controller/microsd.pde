@@ -10,7 +10,7 @@ SdFile root;
 SdFile logfile;
 
 
-char logfile_name[] = "FTM-088_log.csv";     //Create an array that contains the name of our file.
+char logfile_name[] = "FTM88log.csv";     //Create an array that contains the name of our file.
 
 void init_microsd() {  
   if (USE_LOG_SHIELD) {
