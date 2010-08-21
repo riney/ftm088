@@ -18,17 +18,19 @@ steinhart_hart_coefficient conv_therm_10k_z = {
 };
 
 //Cantherm CWF3AA103G3380 (Digikey 317-1382-ND)
+//Coefficients calibrated for range of:  -15, 15, 45 C
 steinhart_hart_coefficient conv_therm_cantherm = {
-  0.885276658,
-  2.518587355,
-  1.907486448,
+  0.889793157,
+  2.510616526,
+  1.94617556,
 };
 
 //Epcos B57703M0103G040 (Digikey 495-2169-ND)
+//Coefficients calibrated for range of:  -10, 45, 100 C
 steinhart_hart_coefficient conv_therm_epcos = {
-  1.125256672,
-  2.347204473,
-  0.856305273,
+  1.141056613,
+  2.317622917,
+  0.982416736,
 };
 
 //Point Types
