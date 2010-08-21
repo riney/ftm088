@@ -5,10 +5,30 @@ const int IO_RATE = 100;       //Time between input and output interactions in m
 const int SERIAL_RATE = 2000;  //Time between serial updates on point data in ms
 const long LOGGING_RATE = 60000;  //Logging interval
 
+//Note that multipliers are in use for the SHH coefficients, due to limited
+//floating point precision in the arduino environment.
+// A ==      1,000 multiplier
+// B ==     10,000 multiplier
+// C == 10,000,000 multiplier
+
 steinhart_hart_coefficient conv_therm_10k_z = {
-  0.001124963847380,
-  0.000234766149049,
-  0.000000085609586,
+  1.124963847380,
+  2.34766149049,
+  0.85609586,
+};
+
+//Cantherm CWF3AA103G3380 (Digikey 317-1382-ND)
+steinhart_hart_coefficient conv_therm_cantherm = {
+  0.885276658,
+  2.518587355,
+  1.907486448,
+};
+
+//Epcos B57703M0103G040 (Digikey 495-2169-ND)
+steinhart_hart_coefficient conv_therm_epcos = {
+  1.125256672,
+  2.347204473,
+  0.856305273,
 };
 
 //Point Types
@@ -33,6 +53,8 @@ const int NOTIFY_LOG = 5;
 //Conversion Types
 const int CONV_NONE = 0;
 const int CONV_THERM_10K_Z = 1;
+const int CONV_THERM_CANTHERM = 2;
+const int CONV_THERM_EPCOS = 3;
 
 //Convenient point list index definitions here
 const int ONBOARD_LED = 0;
@@ -121,7 +143,7 @@ void load_pointlist() {
   points[1].pin = 8;
   points[1].type = POINT_AINPUT;
   points[1].precision = 1;
-  points[1].conv_type = CONV_THERM_10K_Z;
+  points[1].conv_type = CONV_THERM_EPCOS;
   points[1].logged = true;
   points[1].alarm.type = ALM_NONE;
   points[1].alarm.state = false;
@@ -134,7 +156,7 @@ void load_pointlist() {
   points[2].pin = 9;
   points[2].type = POINT_AINPUT;
   points[2].precision = 1;
-  points[2].conv_type = CONV_THERM_10K_Z;
+  points[2].conv_type = CONV_THERM_EPCOS;
   points[2].logged = true;
   points[2].alarm.type = ALM_NONE;
   points[2].alarm.state = false;
@@ -147,7 +169,7 @@ void load_pointlist() {
   points[3].pin = 10;
   points[3].type = POINT_AINPUT;
   points[3].precision = 1;
-  points[3].conv_type = CONV_THERM_10K_Z;
+  points[3].conv_type = CONV_THERM_CANTHERM;
   points[3].logged = true;
   points[3].alarm.type = ALM_NONE;
   points[3].alarm.state = false;
@@ -160,7 +182,7 @@ void load_pointlist() {
   points[4].pin = 11;
   points[4].type = POINT_AINPUT;
   points[4].precision = 1;
-  points[4].conv_type = CONV_THERM_10K_Z;
+  points[4].conv_type = CONV_THERM_EPCOS;
   points[4].logged = true;
   points[4].alarm.type = ALM_NONE;
   points[4].alarm.state = false;
@@ -303,6 +325,12 @@ void do_input_update() {
         switch (points[i].conv_type) {
           case CONV_THERM_10K_Z:
             points[i].value = conversion_therm(raw_input, conv_therm_10k_z);
+            break;
+          case CONV_THERM_CANTHERM:
+            points[i].value = conversion_therm(raw_input, conv_therm_cantherm);
+            break;
+          case CONV_THERM_EPCOS:
+            points[i].value = conversion_therm(raw_input, conv_therm_epcos);
             break;
           default:
             points[i].value = raw_input;
