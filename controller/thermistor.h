@@ -1,5 +1,9 @@
 #include <math.h>
 
+//Thermistor code tested with the following wiring:
+//   (Ground)-----[Thermistor]------\ /------[10k ohm resistor]-----(+5vdc ref voltage)
+//                               input pin
+
 //Note that multipliers are in use for the SHH coefficients, due to limited
 //floating point precision in the arduino environment.
 // A ==      1,000 multiplier
